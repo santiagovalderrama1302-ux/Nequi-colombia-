@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Comprobante de pago</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: #f4f1f7;
+      color: #2d2630;
+      min-height: 100vh;
+      padding: 12px;
+    }
+
+    .app {
+      max-width: 420px;
+      margin: 0 auto;
+    }
+
+    /* Panel de edición (se oculta tocando la flecha ←) */
+    .controles {
+      background-color: #ffffff;
+      border-radius: 14px;
+      border: 1px solid #e7dfe9;
+      padding: 13px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 10px rgba(40, 20, 45, 0.05);
+    }
+
+    .controles h2 {
+      font-size: 0.86rem;
+      color: #2d2630;
+      margin-bottom: 9px;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .chip {
+      background-color: #f9eff6;
+      color: #8f1d63;
+      border: 1px solid #ebd0e1;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .fila-form {
+      margin-bottom: 8px;
+    }
+
+    .fila-form label {
+      display: block;
+      font-size: 0.72rem;
+      color: #776e7a;
+      margin-bottom: 3px;
+    }
+
+    .fila-form input {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #dcd2e0;
+      font-size: 0.88rem;
+      color: #2d2630;
+      background-color: #ffffff;
+    }
+
+    .btn-generar {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 10px;
+      background-color: #c8197e;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.88rem;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+
+    .barra-descarga {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .btn-descargar {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #d7cddb;
+      border-radius: 10px;
+      background-color: #ffffff;
+      color: #2d2630;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .estado-descarga {
+      font-size: 0.74rem;
+      color: #776e7a;
+      text-align: center;
+      margin-bottom: 12px;
+      min-height: 16px;
+    }
+
+    /* Comprobante principal */
+    .comprobante-card {
+      background-color: #ffffff;
+      border-radius: 16px;
+      border: 1px solid #ece4ef;
+      overflow: hidden;
+      box-shadow: 0 6px 20px rgba(36, 18, 42, 0.07);
+      margin-bottom: 14px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      background-color: #ffffff;
+      border-bottom: 1px solid #f2ecf4;
+    }
+
+    .btn-atras {
+      background: none;
+      border: none;
+      font-size: 1.15rem;
+      color: #2d2630;
+      cursor: pointer;
+      padding: 2px 6px;
+      line-height: 1;
+    }
+
+    .topbar-titulo {
+      font-size: 0.94rem;
+      font-weight: 500;
+      color: #2d2630;
+    }
+
+    .cuerpo-ticket {
+      position: relative;
+      padding: 18px 20px 26px 28px;
+      background-color: #fdfbfe;
+      background-image:
+        radial-gradient(rgba(165, 150, 172, 0.16) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(253, 250, 254, 0.94) 100%);
+      background-size: 20px 20px, 100% 100%;
+    }
+
+    /* Marca lateral vertical sutil estilo captura */
+    .marca-lateral {
+      position: absolute;
+      left: 7px;
+      top: 56%;
+      transform: translateY(-50%) rotate(-90deg);
+      transform-origin: left center;
+      font-size: 0.56rem;
+      letter-spacing: 0.4px;
+      color: #8f8694;
+      white-space: nowrap;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .estado-envio {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #b53f5e;
+      font-weight: 500;
+      font-size: 0.98rem;
+      padding-bottom: 14px;
+      border-bottom: 1.5px dashed #dcd2df;
+      margin-bottom: 18px;
+    }
+
+    .icono-flecha {
+      width: 19px;
+      height: 19px;
+      border-radius: 50%;
+      border: 1.4px solid #b53f5e;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #b53f5e;
+    }
+
+    .qr-marco {
+      width: 158px;
+      height: 158px;
+      margin: 0 auto 14px;
+      background-color: #c5f2da;
+      border: 1px solid #aee6c8;
+      border-radius: 6px;
+      padding: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .qr-wrapper {
+      position: relative;
+      width: 122px;
+      height: 122px;
+      background-color: #ffffff;
+      padding: 4px;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .qr-centro-n {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background-color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .qr-centro-n span {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background-color: #210029;
+      color: #ffffff;
+      font-size: 0.68rem;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+
+    .nota-qr {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 0.76rem;
+      color: #4f4752;
+      line-height: 1.35;
+      margin-bottom: 20px;
+    }
+
+    .info-i {
+      width: 17px;
+      height: 17px;
+      min-width: 17px;
+      border-radius: 50%;
+      border: 1.2px solid #4f4752;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.68rem;
+      font-weight: 700;
+      margin-top: 1px;
+    }
+
+    .dato-bloque {
+      margin-bottom: 14px;
+    }
+
+    .dato-label {
+      font-size: 0.76rem;
+      color: #7c737f;
+      margin-bottom: 2px;
+    }
+
+    .dato-valor {
+      font-size: 0.94rem;
+      font-weight: 400;
+      color: #2d2630;
+      word-break: break-word;
+    }
+
+    .dato-valor.monto {
+      font-weight: 600;
+      font-size: 0.96rem;
+    }
+
+    /* Cálculo interno del parche */
+    .resumen-parche {
+      background-color: #ffffff;
+      border-radius: 14px;
+      border: 1px solid #e7dfe9;
+      padding: 13px;
+      box-shadow: 0 2px 10px rgba(40, 20, 45, 0.05);
+    }
+
+    .resumen-parche h3 {
+      font-size: 0.86rem;
+      color: #2d2630;
+      margin-bottom: 8px;
+    }
+
+    .total-linea {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.88rem;
+      font-weight: 700;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #f0eaf2;
+      margin-bottom: 8px;
+    }
+
+    .historial-lista {
+      font-size: 0.78rem;
+      color: #4f4752;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .historial-item {
+      background-color: #faf7fb;
+      border: 1px solid #f0eaf2;
+      padding: 7px 9px;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="controles" id="panel-editar">
+      <h2>Datos del comprobante</h2>
+
+      <div class="chips">
+        <button type="button" class="chip" onclick="setAmigo('Darwin', '3000000000')">Darwin</button>
+        <button type="button" class="chip" onclick="setAmigo('Camilo', '3000000000')">Camilo</button>
+        <button type="button" class="chip" onclick="setAmigo('Pipe', '3000000000')">Pipe</button>
+        <button type="button" class="chip" onclick="setAmigo('Socio 4', '3000000000')">Socio 4</button>
+      </div>
+
+      <div class="fila-form">
+        <label for="inp-para">Para</label>
+        <input type="text" id="inp-para" value="Mom♡" />
+      </div>
+
+      <div class="chips">
+        <button type="button" class="chip" onclick="setValor(10000)">$10.000</button>
+        <button type="button" class="chip" onclick="setValor(20000)">$20.000</button>
+        <button type="button" class="chip" onclick="setValor(50000)">$50.000</button>
+      </div>
+
+      <div class="fila-form">
+        <label for="inp-monto">¿Cuánto?</label>
+        <input type="number" id="inp-monto" value="10000" />
+      </div>
+
+      <div class="fila-form">
+        <label for="inp-cel">Número Nequi</label>
+        <input type="text" id="inp-cel" value="302 213 1554" />
+      </div>
+
+      <button type="button" class="btn-generar" onclick="generarYRegistrar()">Generar y sumar al cálculo</button>
+    </div>
+
+    <div class="barra-descarga">
+      <button type="button" class="btn-descargar" onclick="descargarPNG()">⬇️ Descargar PNG</button>
+    </div>
+    <div class="estado-descarga" id="estado-descarga"></div>
+
+    <div class="comprobante-card" id="captura-comprobante">
+      <div class="topbar">
+        <button type="button" class="btn-atras" onclick="togglePanel()" title="Editar">←</button>
+        <div class="topbar-titulo">Comprobante de pago</div>
+      </div>
+
+      <div class="cuerpo-ticket">
+        <div class="marca-lateral">VIGILADO · CONTROL INTERNO</div>
+
+        <div class="estado-envio">
+          <span class="icono-flecha">↓</span>
+          <span>Envío Realizado</span>
+        </div>
+
+        <div class="qr-marco">
+          <div class="qr-wrapper">
+            <div id="qr-canvas"></div>
+            <div class="qr-centro-n"><span>N</span></div>
+          </div>
+        </div>
+
+        <div class="nota-qr">
+          <span class="info-i">i</span>
+          <span>¡Escanea este QR con Nequi para verificar tu envío al instante!</span>
+        </div>
+
+        <div class="dato-bloque">
+          <div class="dato-label">Para</div>
+          <div class="dato-valor" id="v-para">Mom♡</div>
+        </div>
+
+        <div class="dato-bloque">
+          <div class="dato-label">¿Cuánto?</div>
+          <div class="dato-valor monto" id="v-monto">$ 10.000,00</div>
+        </div>
+
+        <div class="dato-bloque">
+          <div class="dato-label">Número Nequi</div>
+          <div class="dato-valor" id="v-cel">302 213 1554</div>
+        </div>
+
+        <div class="dato-bloque">
+          <div class="dato-label">Fecha</div>
+          <div class="dato-valor" id="v-fecha">--</div>
+        </div>
+
+        <div class="dato-bloque">
+          <div class="dato-label">Referencia</div>
+          <div class="dato-valor" id="v-ref">M22840599</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="resumen-parche">
+      <h3>Cálculo de comprobantes del parche</h3>
+      <div class="total-linea">
+        <span>Total acumulado:</span>
+        <span id="total-calculo">$ 0,00</span>
+      </div>
+      <div class="historial-lista" id="lista-comprobantes"></div>
+    </div>
+  </div>
+
+  <script>
+    let totalAcumulado = 0;
+
+    function formatoPesos(num) {
+      return '$ ' + Number(num || 0).toLocaleString('es-CO', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function fechaEstiloComprobante() {
+      const d = new Date();
+      const meses = [
+        'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+      ];
+      const dia = d.getDate();
+      const mes = meses[d.getMonth()];
+      const anio = d.getFullYear();
+
+      let horas = d.getHours();
+      const minutos = String(d.getMinutes()).padStart(2, '0');
+      const periodo = horas >= 12 ? 'p. m.' : 'a. m.';
+      horas = horas % 12;
+      if (horas === 0) horas = 12;
+      const horasStr = String(horas).padStart(2, '0');
+
+      return `${dia} de ${mes} de ${anio} a las ${horasStr}:${minutos} ${periodo}`;
+    }
+
+    function dibujarQR(texto) {
+      const cont = document.getElementById('qr-canvas');
+      cont.innerHTML = '';
+      if (typeof QRCode !== 'undefined') {
+        new QRCode(cont, {
+          text: texto,
+          width: 114,
+          height: 114,
+          colorDark: '#161218',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.H
+        });
+      } else {
+        cont.textContent = 'QR';
+      }
+    }
+
+    function setAmigo(nombre, cel) {
+      document.getElementById('inp-para').value = nombre;
+      if (cel) document.getElementById('inp-cel').value = cel;
+      previsualizar();
+    }
+
+    function setValor(monto) {
+      document.getElementById('inp-monto').value = monto;
+      previsualizar();
+    }
+
+    function togglePanel() {
+      const p = document.getElementById('panel-editar');
+      p.style.display = p.style.display === 'none' ? 'block' : 'none';
+    }
+
+    let refActual = 'M' + Math.floor(10000000 + Math.random() * 90000000);
+    let fechaActual = fechaEstiloComprobante();
+
+    function previsualizar() {
+      const para = document.getElementById('inp-para').value.trim() || 'Amigo';
+      const monto = Number(document.getElementById('inp-monto').value) || 0;
+      const cel = document.getElementById('inp-cel').value.trim() || '300 000 0000';
+
+      document.getElementById('v-para').textContent = para;
+      document.getElementById('v-monto').textContent = formatoPesos(monto);
+      document.getElementById('v-cel').textContent = cel;
+      document.getElementById('v-fecha').textContent = fechaActual;
+      document.getElementById('v-ref').textContent = refActual;
+
+      dibujarQR(`${refActual}|${para}|${monto}|${cel}`);
+    }
+
+    function generarYRegistrar() {
+      refActual = 'M' + Math.floor(10000000 + Math.random() * 90000000);
+      fechaActual = fechaEstiloComprobante();
+      previsualizar();
+
+      const para = document.getElementById('v-para').textContent;
+      const monto = Number(document.getElementById('inp-monto').value) || 0;
+
+      totalAcumulado += monto;
+      document.getElementById('total-calculo').textContent = formatoPesos(totalAcumulado);
+
+      const item = document.createElement('div');
+      item.className = 'historial-item';
+      item.innerHTML = `<span>${refActual} — ${para}</span><strong>${formatoPesos(monto)}</strong>`;
+      document.getElementById('lista-comprobantes').prepend(item);
+    }
+
+    async function descargarPNG() {
+      const estado = document.getElementById('estado-descarga');
+      const elemento = document.getElementById('captura-comprobante');
+
+      if (typeof html2canvas === 'undefined') {
+        estado.textContent = 'Sin conexión para cargar la librería de imagen. Usa pantallazo.';
+        return;
+      }
+
+      estado.textContent = 'Generando imagen PNG...';
+      try {
+        const canvas = await html2canvas(elemento, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff'
+        });
+        const enlace = document.createElement('a');
+        enlace.download = `comprobante-${refActual}.png`;
+        enlace.href = canvas.toDataURL('image/png');
+        document.body.appendChild(enlace);
+        enlace.click();
+        document.body.removeChild(enlace);
+        estado.textContent = '¡Imagen lista! Revisa tus descargas o galería.';
+      } catch (err) {
+        estado.textContent = 'No se pudo descargar aquí; ábrelo en Chrome o toma pantallazo.';
+      }
+    }
+
+    previsualizar();
+  </script>
+</body>
+</html>
+{
+  "name": "Control Parche",
+  "short_name": "ParcheApp",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f4f1f7",
+  "theme_color": "#c8197e",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/192/c8197e/ffffff?text=P",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://via.placeholder.com/512/c8197e/ffffff?text=P",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+const CACHE_NAME = 'parche-app-v1';
+const ARCHIVOS = [
+  './',
+  './index.html',
+  './manifest.json'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ARCHIVOS))
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request).then((respuesta) => respuesta || fetch(event.request))
+  );
+});
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#c8197e" />
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+</script>
